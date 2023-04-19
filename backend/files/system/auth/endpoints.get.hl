@@ -1,0 +1,46 @@
+
+/*
+ * Returns all dynamic HTTP endpoints in the system,
+ * with their associated verb(s), and roles that are
+ * allowed to access the endpoint.
+ */
+.description:Returns all dynamic HTTP endpoints in the system, with their associated verb(s), and roles that are allowed to access the endpoint. Use this endpoint to determine access rights for users in your frontend client.
+.type:public
+
+// Declares how many seconds the operation should be cached.
+.cache-seconds:int:300
+
+/*
+ * Invokes [endpoints.list], making sure we cache the results, since it's a
+ * fairly expensive operation.
+ */
+cache.try-get:magic.auth.endpoints
+   expiration:x:@.cache-seconds
+   .lambda
+
+      // Cache miss, retrieving endpoints, and returning to caller.
+      .result
+      endpoints.list
+      for-each:x:@endpoints.list/*
+         if
+            exists:x:@.dp/#/*/auth/*
+            .lambda
+               add:x:+/*/*
+                  get-nodes:x:@.dp/#/*/auth/*
+               add:x:@if/+/+/*/*
+                  .
+                     auth
+         unwrap:x:+/*/*/*
+         add:x:@.result
+            .
+               .
+                  path:x:@.dp/#/*/path
+                  verb:x:@.dp/#/*/verb
+      lambda2hyper:x:@.result/*
+      return:x:-
+
+// Returning results of above invocation to caller.
+hyper2lambda:x:@cache.try-get
+add:x:../*/return
+   get-nodes:x:@hyper2lambda/*
+return

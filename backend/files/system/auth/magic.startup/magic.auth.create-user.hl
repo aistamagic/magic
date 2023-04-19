@@ -1,0 +1,70 @@
+
+/*
+ * Creates a user and inserts into the "magic" database,
+ * with the username/password specified in the [.arguments] collection,
+ * and belonging to the specified [roles] from the [.arguments] collection.
+ * 
+ * Password is cryptographically hashed using the blow fish hashing algorithm,
+ * and cryptographically and securely stored with a per-record based salt in the
+ * "users" table.
+ */
+slots.create:magic.auth.create-user
+
+   // Hashing password if we should.
+   .password
+   if
+      get-value:x:@.arguments/*/is_hashed
+      .lambda
+         set-value:x:@.password
+            get-value:x:@.arguments/*/password
+   else
+      set-value:x:@.password
+         crypto.password.hash:x:@.arguments/*/password
+
+   // Opening up a database connection to magic.
+   data.connect:magic
+      database-type:x:@.arguments/*/database-type
+
+      // Inserting user.
+      data.create
+         database-type:x:@.arguments/*/database-type
+         table:users
+         values
+            username:x:@.arguments/*/username
+            password:x:@.password
+
+      // Inserting all roles.
+      for-each:x:@.arguments/*/roles/*
+
+         // Then inserting into users_roles an association between user and role.
+         data.create
+            database-type:x:@.arguments/*/database-type
+            table:users_roles
+            values
+               role:x:@.dp/#
+               user:x:@.arguments/*/username
+
+      // Inserting optionally supplied extra information.
+      if
+         exists:x:@.arguments/*/extra/*
+         .lambda
+
+            // Looping through each extra child specified.
+            for-each:x:@.arguments/*/extra/*
+
+               // Temporary variables.
+               .type
+               .value
+               set-value:x:@.type
+                  get-name:x:@.dp/#
+               set-value:x:@.value
+                  get-value:x:@.dp/#
+
+               // Then inserting into users_extra an association between user and extra value.
+               data.create
+                  database-type:x:@.arguments/*/database-type
+                  table:users_extra
+                  values
+                     user:x:@.arguments/*/username
+                     type:x:@.type
+                     value:x:@.value

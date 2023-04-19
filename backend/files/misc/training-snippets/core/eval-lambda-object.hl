@@ -1,0 +1,5 @@
+
+// Evaluate [.execute]
+.execute
+   log.info:Hello from [eval]
+eval:x:@.execute

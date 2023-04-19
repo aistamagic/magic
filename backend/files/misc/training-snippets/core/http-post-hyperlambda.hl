@@ -1,0 +1,11 @@
+
+// POST Hyperlambda to foo.com
+http.post:"https://foo.com"
+   headers
+      Content-Type:application/hyperlambda
+   payload
+      .foo
+         .:Thomas
+         .:John
+      for-each:x:@.foo/*
+         log.info:x:@.dp/#

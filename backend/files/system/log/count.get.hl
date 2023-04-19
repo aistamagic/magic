@@ -1,0 +1,17 @@
+
+// Returns number of log items in the database.
+.arguments
+   query:string
+.description:Returns the number of log items in your database
+.type:internal
+
+// Ensures user is authorized to access endpoint.
+auth.ticket.verify:root
+
+// Invoking slot responsible for returning count.
+log.count:x:@.arguments/*/query
+
+// Returning result of above invocation to caller.
+unwrap:x:+/*
+return
+   count:x:@log.count

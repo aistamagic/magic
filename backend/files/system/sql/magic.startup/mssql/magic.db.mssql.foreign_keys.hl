@@ -1,0 +1,71 @@
+
+/*
+ * Lists all foreign keys in some SQL Server table.
+ * 
+ * Arguments
+ * 
+ * - [connection-string] - What connection string to use
+ * - [database] - What database you want to check
+ * - [table] - What table you want to check
+ */
+slots.create:magic.db.mssql.foreign_keys
+
+   // Sanity checking invocation.
+   validators.mandatory:x:@.arguments/*/database
+   validators.mandatory:x:@.arguments/*/table
+
+   // Opens up our connection
+   .connection:[information_schema]
+   if
+      and
+         not
+            eq
+               get-value:x:@.arguments/*/connection-string
+               .
+         not
+            eq
+               get-value:x:@.arguments/*/connection-string
+               .:
+      .lambda
+         set-value:x:@.connection
+            strings.concat
+               .:[
+               get-value:x:@.arguments/*/connection-string
+               .:|
+               get-value:x:@.arguments/*/database
+               .:]
+   else
+      set-value:x:@.connection
+         strings.concat
+            .:[generic|
+            get-value:x:@.arguments/*/database
+            .:]
+   mssql.connect:x:@.connection
+
+      // Dynamically creating our SQL.
+      strings.split:x:@.arguments/*/table
+         .:.
+      mssql.select:@"select
+   col1.name as [column], sch2.name + '.' + tab2.name as [foreign_table], col2.name as [foreign_column], obj.name as name
+   from sys.foreign_key_columns fkc
+      inner join sys.objects obj on obj.object_id = fkc.constraint_object_id
+      inner join sys.tables tab1 on tab1.object_id = fkc.parent_object_id
+      inner join sys.schemas sch on tab1.schema_id = sch.schema_id
+      inner join sys.columns col1 on col1.column_id = parent_column_id and col1.object_id = tab1.object_id
+      inner join sys.tables tab2 on tab2.object_id = fkc.referenced_object_id
+      inner join sys.schemas sch2 on tab2.schema_id = sch2.schema_id
+      inner join sys.columns col2 on col2.column_id = referenced_column_id and col2.object_id = tab2.object_id
+      inner join sys.[types] TY on
+         col1.[system_type_id] = TY.[system_type_id] and
+         col1.[user_type_id] = TY.[user_type_id] and
+         tab1.name = @table and
+         sch.name = @schema"
+         table:x:@strings.split/0/-
+         schema:x:@strings.split/0
+
+      /*
+       * Creating our return value, by projecting it into
+       * a generic form, that does not rely upon MySQL's syntactic
+       * details.
+       */
+      return-nodes:x:@mssql.select/*

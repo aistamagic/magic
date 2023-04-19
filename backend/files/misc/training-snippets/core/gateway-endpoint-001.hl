@@ -1,0 +1,6 @@
+
+// Gateway endpoint returning what someplace.com/crm/customers returns
+.arguments
+http.get:"https://someplace.com/crm/customers"
+   convert:true
+return-nodes:x:@http.get/*/content/*

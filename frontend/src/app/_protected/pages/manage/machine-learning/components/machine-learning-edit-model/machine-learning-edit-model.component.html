@@ -1,0 +1,292 @@
+
+<h3 mat-dialog-title class="mb-3">
+  {{data ? ('\'' + data.type + '\' model configuration') : 'New model configuration'}}
+</h3>
+
+<form (ngSubmit)="save()">
+  <div mat-dialog-content>
+
+    <mat-form-field class="w-100 standalone-field" [class.d-none]="data">
+      <span
+        matPrefix
+        matTooltip="Type name"
+        class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+        <mat-icon>edit</mat-icon>
+        <span class="text-muted">|</span>
+      </span>
+      <input
+        matInput
+        required
+        [disabled]="data || isLoading"
+        placeholder="Type name"
+        spellcheck="false"
+        [pattern]="CommonRegEx.appNameWithUppercaseHyphen"
+        [(ngModel)]="type"
+        name="type"
+        autocomplete="off">
+        <mat-error>{{CommonErrorMessages.appNameWithUppercaseHyphen}}</mat-error>
+    </mat-form-field>
+
+    <mat-form-field class="w-100 standalone-field" [class.d-none]="!advanced">
+      <span
+        matPrefix
+        matTooltip="Prefix inserted before all prompts"
+        class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+        <mat-icon>face</mat-icon>
+        <span class="text-muted">|</span>
+      </span>
+      <input
+        matInput
+        required
+        placeholder="Prefix"
+        [disabled]="isLoading"
+        spellcheck="false"
+        [(ngModel)]="prefix"
+        name="prefix"
+        autocomplete="off">
+    </mat-form-field>
+
+
+    <div class="row" [class.d-none]="!advanced">
+
+      <div class="col-12 d-flex justify-content-md-between align-items-md-center align-items-end flex-md-row">
+
+        <mat-form-field class="w-100 standalone-field me-2">
+          <span
+            matPrefix
+            matTooltip="Completion model"
+            class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+            <mat-icon>help_outline</mat-icon>
+            <span class="text-muted">|</span>
+          </span>
+          <mat-select
+            [(ngModel)]="model"
+            [disabled]="isLoading"
+            placeholder="Completion model"
+            name="model">
+            <mat-select-trigger>
+              {{model?.id}}
+            </mat-select-trigger>
+            <mat-option
+              class="multiline-mat-option"
+              *ngFor="let idx of models"
+              [value]="idx">
+              <span class="d-block name-line" #typeName>
+                {{idx.id}}
+              </span>
+              <span class="d-block description-line">
+                Owned by {{idx.owned_by}}
+              </span>
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field class="w-100 standalone-field">
+          <span
+            matPrefix
+            matTooltip="Vector model"
+            class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+            <mat-icon>help_outline</mat-icon>
+            <span class="text-muted">|</span>
+          </span>
+          <mat-select
+            [(ngModel)]="vector_model"
+            [disabled]="isLoading"
+            placeholder="Vector model"
+            name="vector_model">
+            <mat-select-trigger>
+              {{vector_model?.id}}
+            </mat-select-trigger>
+            <mat-option
+              class="multiline-mat-option"
+              *ngFor="let idx of models"
+              [value]="idx">
+              <span class="d-block name-line" #typeName>
+                {{idx.id}}
+              </span>
+              <span class="d-block description-line">
+                Owned by {{idx.owned_by}}
+              </span>
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+      </div>
+
+    </div>
+
+    <div class="row" [class.d-none]="!advanced">
+
+      <div class="col-12 d-flex justify-content-md-between align-items-md-center align-items-end flex-md-row">
+
+        <mat-form-field class="w-100 standalone-field me-2">
+          <span
+            matPrefix
+            matTooltip="Temperature"
+            class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+            <mat-icon>opacity</mat-icon>
+            <span class="text-muted">|</span>
+          </span>
+          <input
+            matInput
+            placeholder="Temperature"
+            [disabled]="isLoading"
+            type="number"
+            min="0"
+            max="1"
+            step="0.1"
+            [(ngModel)]="temperature"
+            name="temperature"
+            autocomplete="off">
+        </mat-form-field>
+
+        <mat-form-field class="w-100 standalone-field me-2">
+          <span
+            matPrefix
+            matTooltip="Max tokens"
+            class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+            <mat-icon>timeline</mat-icon>
+            <span class="text-muted">|</span>
+          </span>
+          <input
+            matInput
+            placeholder="Max tokens"
+            [disabled]="isLoading"
+            type="number"
+            min="1"
+            max="8000"
+            [(ngModel)]="max_tokens"
+            name="max_tokens"
+            autocomplete="off">
+        </mat-form-field>
+
+        <mat-form-field class="w-100 standalone-field me-2">
+          <span
+            matPrefix
+            matTooltip="Threshold for vectors"
+            class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+            <mat-icon>get_app</mat-icon>
+            <span class="text-muted">|</span>
+          </span>
+          <input
+            matInput
+            placeholder="Threshold"
+            type="number"
+            [disabled]="isLoading"
+            min="0.5"
+            max="1"
+            step="0.01"
+            [(ngModel)]="threshold"
+            name="threshold"
+            autocomplete="off">
+        </mat-form-field>
+
+        <mat-form-field class="w-100 standalone-field">
+          <span
+            matPrefix
+            matTooltip="reCAPTCHA value"
+            class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+            <mat-icon>verified_user</mat-icon>
+            <span class="text-muted">|</span>
+          </span>
+          <input
+            matInput
+            placeholder="reCAPTCHA"
+            type="number"
+            min="0"
+            [disabled]="isLoading"
+            max="1"
+            step="0.1"
+            [(ngModel)]="recaptcha"
+            name="recaptcha"
+            autocomplete="off">
+        </mat-form-field>
+
+      </div>
+
+    </div>
+
+    <mat-form-field class="w-100 standalone-field" [class.d-none]="!advanced">
+      <span
+        matPrefix
+        matTooltip="Authorisation requirements"
+        class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+        <mat-icon>shield</mat-icon>
+        <span class="text-muted">|</span>
+      </span>
+      <mat-select
+        placeholder="Add roles"
+        multiple
+        name="auth"
+        [disabled]="isLoading"
+        [(ngModel)]="auth"
+        disableOptionCentering
+        panelClass="custom-select-option">
+        <mat-option
+          *ngFor="let item of roles"
+          [value]="item.name">
+          {{item.name}}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <div class="row mt-2 mb-2" [class.d-none]="!advanced">
+
+      <div class="col-12 text-end">
+
+        <mat-checkbox
+          [(ngModel)]="supervised"
+          name="supervised"
+          (change)="supervisedChanged()"
+          class="me-4"
+          [disabled]="isLoading"
+          labelPosition="before"
+          color="primary">Supervised</mat-checkbox>
+
+        <mat-checkbox
+          [(ngModel)]="cached"
+          name="cached"
+          class="me-4"
+          [disabled]="!supervised || isLoading"
+          labelPosition="before"
+          color="primary">Cached</mat-checkbox>
+
+        <mat-checkbox
+          [(ngModel)]="use_embeddings"
+          name="use_embeddings"
+          [disabled]="isLoading"
+          class="me-4"
+          labelPosition="before"
+          color="primary">Use vectors</mat-checkbox>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <div mat-dialog-actions [align]="'end'">
+
+    <mat-slide-toggle
+      labelPosition="before"
+      name="advanced"
+      [(ngModel)]="advanced">
+      Advanced
+    </mat-slide-toggle>
+
+    <button
+      mat-button
+      mat-dialog-close>
+      Cancel
+    </button>
+
+    <button
+      mat-flat-button
+      [disabled]="isLoading"
+      type="submit">
+      Save
+    </button>
+
+  </div>
+
+</form>

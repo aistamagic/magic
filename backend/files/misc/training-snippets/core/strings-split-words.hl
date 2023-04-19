@@ -1,0 +1,4 @@
+
+// Split [.src] into words
+strings.split:x:@.src
+   .:" "

@@ -1,0 +1,38 @@
+
+/*
+ * Installs the specified module by executing all magic.startup Hyperlambda
+ * files inside of it.
+ * 
+ * Arguments.
+ * 
+ * - [module] - Name of module to install.
+ */
+slots.create:magic.modules.install-module
+
+   // Sanity checking invocation.
+   validators.mandatory:x:@.arguments/*/module
+
+   /*
+    * Loops through all files recursively from within the module's
+    * "magic.startup" folder.
+    */
+   strings.concat
+      .:/modules/
+      get-value:x:@.arguments/*/module
+      .:/
+
+   // Executing all magic.startup Hyperlambda files inside module.
+   io.file.list-recursively:x:@strings.concat
+   for-each:x:@io.file.list-recursively/*
+
+      // Checking if file is a startup Hyperlambda file.
+      if
+         and
+            strings.contains:x:@.dp/#
+               .:/magic.startup/
+            strings.ends-with:x:@.dp/#
+               .:.hl
+         .lambda
+
+            // Executing file.
+            io.file.execute:x:@.dp/#

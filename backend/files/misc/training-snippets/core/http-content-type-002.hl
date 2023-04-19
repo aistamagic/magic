@@ -1,0 +1,4 @@
+
+// Content-Type HTML
+response.headers.set
+   Content-Type:text/html

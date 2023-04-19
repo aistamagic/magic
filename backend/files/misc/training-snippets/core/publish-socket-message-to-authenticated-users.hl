@@ -1,0 +1,5 @@
+
+// Publish 'foo-qwe' socket message with [foo] having value 'bar'
+sockets.signal:foo-qwe
+   args
+      foo:bar

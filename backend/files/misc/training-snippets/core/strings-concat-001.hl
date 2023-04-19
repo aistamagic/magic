@@ -1,0 +1,5 @@
+
+// Concatenate 2 strings
+strings.concat
+   .:string1
+   .:string2

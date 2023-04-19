@@ -1,0 +1,28 @@
+// dynamically populated
+.arguments
+.description:CRUD create endpoint inserting one record into your {table} table in your {database} database
+.type:crud-create
+.foreign-keys
+
+// Opening up database connection.
+data.connect:{database}
+   database-type:{database-type}
+
+   // Parametrising our create invocation.
+   add:x:./*/data.create/*/values
+      get-nodes:x:@.arguments/*
+
+   // Creating our record.
+   data.create
+      database-type:{database-type}
+      table:{table}
+      return-id:{return-id}
+      values
+
+   // Returning the correct status code.
+   response.status.set:201
+
+   // Returning result of above invocation to caller.
+   unwrap:x:+/*
+   return
+      id:x:@data.create

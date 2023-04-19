@@ -1,0 +1,74 @@
+
+
+<h3 mat-dialog-title class="mb-3">Embed chatbot on website</h3>
+
+<div mat-dialog-content class="content">
+
+  <mat-form-field class="w-100 standalone-field">
+    <span
+      matPrefix
+      matTooltip="Header of chat window"
+      class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+      <mat-icon>edit</mat-icon>
+      <span class="text-muted">|</span>
+    </span>
+    <input
+      matInput
+      placeholder="Header"
+      spellcheck="false"
+      [(ngModel)]="header"
+      autocomplete="off">
+  </mat-form-field>
+
+  <mat-form-field class="w-100 standalone-field">
+    <span
+      matPrefix
+      matTooltip="Button text"
+      class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+      <mat-icon>touch_app</mat-icon>
+      <span class="text-muted">|</span>
+    </span>
+    <input
+      matInput
+      placeholder="Button text"
+      spellcheck="false"
+      [(ngModel)]="buttonTxt"
+      autocomplete="off">
+  </mat-form-field>
+
+  <mat-form-field class="w-100 standalone-field">
+    <span
+      matPrefix
+      matTooltip="Theme to use"
+      class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+      <mat-icon>palette</mat-icon>
+      <span class="text-muted">|</span>
+    </span>
+    <mat-select
+      [(ngModel)]="theme"
+      placeholder="Theme">
+      <mat-option
+        *ngFor="let idx of themes"
+        [value]="idx">
+        {{idx}}
+      </mat-option>
+    </mat-select>
+  </mat-form-field>
+
+</div>
+
+<div mat-dialog-actions [align]="'end'">
+
+  <button
+    mat-button
+    mat-dialog-close>
+    Close
+  </button>
+
+  <button
+    mat-flat-button
+    (click)="embed()">
+    Embed
+  </button>
+
+</div>

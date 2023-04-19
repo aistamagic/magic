@@ -1,0 +1,201 @@
+
+
+<h3 mat-dialog-title class="mb-3">Import <span class="d-md-inline d-none">training data</span> for '{{data.type}}' model</h3>
+
+<div mat-dialog-content class="content">
+
+  <form (ngSubmit)="importUrl()" class="row" *ngIf="!advanced">
+
+    <div class="col-12">
+
+      <mat-form-field class="standalone-field w-100">
+        <span
+          matPrefix
+          matTooltip="Root URL to crawl for training data"
+          class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+          <mat-icon>http</mat-icon>
+          <span class="text-muted">|</span>
+        </span>
+        <input
+          matInput
+          placeholder="Website URL"
+          [(ngModel)]="url"
+          name="url"
+          autocomplete="off">
+      </mat-form-field>
+  
+    </div>
+
+    <div class="col-12">
+
+      <div class="d-flex justify-content-md-between align-items-md-center align-items-end flex-md-row w-100">
+
+        <mat-form-field class="standalone-field me-2 w-100">
+          <span
+            matPrefix
+            matTooltip="Delay in seconds between pages"
+            class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+            <mat-icon>hourglass_empty</mat-icon>
+            <span class="text-muted">|</span>
+          </span>
+          <input
+            matInput
+            placeholder="Delay"
+            [(ngModel)]="delay"
+            type="number"
+            min="1"
+            max="30"
+            step="1"
+            name="delay"
+            autocomplete="off">
+        </mat-form-field>
+
+        <mat-form-field class="standalone-field me-2 w-100">
+          <span
+            matPrefix
+            matTooltip="Maximum number of URLs to crawl"
+            class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+            <mat-icon>exit_to_app</mat-icon>
+            <span class="text-muted">|</span>
+          </span>
+          <input
+            matInput
+            placeholder="Max URLs"
+            [(ngModel)]="max"
+            type="number"
+            min="1"
+            max="5000"
+            step="1"
+            name="max"
+            autocomplete="off">
+        </mat-form-field>
+
+        <mat-form-field class="standalone-field me-2 w-100">
+          <span
+            matPrefix
+            matTooltip="Minimum character count for completions"
+            class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+            <mat-icon>timeline</mat-icon>
+            <span class="text-muted">|</span>
+          </span>
+          <input
+            matInput
+            placeholder="Text length threshold"
+            [(ngModel)]="threshold"
+            type="number"
+            min="25"
+            max="500"
+            step="25"
+            name="threshold"
+            autocomplete="off">
+        </mat-form-field>
+
+        <button
+          class="px-3"
+          matTooltip="Start crawling website"
+          mat-flat-button>
+          Crawl
+        </button>
+
+      </div>
+  
+    </div>
+
+    <div class="col-12">
+
+      <p class="mt-2 text-muted">Crawl some URL to create Machine Learning training data</p>
+
+    </div>
+
+  </form>
+
+  <!-- Upload training data part -->
+  <div class="row" *ngIf="advanced">
+
+    <div class="col-12 d-flex justify-content-md-between align-items-md-center align-items-end flex-md-row">
+
+      <mat-form-field class="w-100 standalone-field me-2">
+        <span
+          matPrefix
+          matTooltip="Prompt field"
+          class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+          <mat-icon>help_outline</mat-icon>
+          <span class="text-muted">|</span>
+        </span>
+        <input
+          matInput
+          placeholder="Prompt field"
+          [(ngModel)]="prompt"
+          autocomplete="off">
+      </mat-form-field>
+  
+      <mat-form-field class="w-100 standalone-field">
+        <span
+          matPrefix
+          matTooltip="Completion field"
+          class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+          <mat-icon>edit</mat-icon>
+          <span class="text-muted">|</span>
+        </span>
+        <input
+          matInput
+          placeholder="Completion field"
+          [(ngModel)]="completion"
+          autocomplete="off">
+      </mat-form-field>
+
+    </div>
+
+    <div class="col-12 mt-2">
+  
+      <div class="drop-container pointer border-color">
+
+        <input
+          type="file"
+          [(ngModel)]="trainingFileModel"
+          name="trainingFileModel"
+          class="w-100 h-100 hide pointer"
+          #upload
+          (change)="getFile($event)"
+          accept=".csv,.xml,.yaml,.yml,.json">
+
+        <button
+          mat-button
+          class="w-100"
+          (click)="upload.click()"
+          *ngIf="trainingFileModel === ''"
+          [disabled]="uploading">
+          <i class="d-sm-inline d-none">Drag & drop your training data here, CSV, XML, JSON or YAML</i> <br />
+          <span class="text-primary">Choose a file</span>
+        </button>
+
+        <ng-container *ngIf="trainingFileModel !== ''">
+          <h4 class="my-0">{{getFileName()}}</h4>
+          <p class="text-center mt-3" *ngIf="uploading">Uploading ...</p>
+          <p class="text-center mt-3" *ngIf="!uploading">Done!</p>
+        </ng-container>
+
+      </div>
+  
+    </div>
+
+  </div>
+
+</div>
+
+<div mat-dialog-actions [align]="'end'">
+
+  <mat-slide-toggle
+    labelPosition="before"
+    class="me-2"
+    [(ngModel)]="advanced">
+    Advanced
+  </mat-slide-toggle>
+
+  <button
+    mat-button
+    mat-dialog-close>
+    Cancel
+  </button>
+
+</div>

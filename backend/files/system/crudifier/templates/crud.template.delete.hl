@@ -1,0 +1,24 @@
+// dynamically populated
+.arguments
+.description:CRUD delete endpoint deleting one record from your {table} table in your {database} database
+.type:crud-delete
+
+// Opening up our database connection.
+data.connect:{database}
+   database-type:{database-type}
+
+   // Parametrising our delete invocation.
+   add:x:./*/data.delete/*/where/*/and
+      get-nodes:x:@.arguments/*
+
+   // Deleting item from database.
+   data.delete
+      database-type:{database-type}
+      table:{table}
+      where
+         and
+
+   // Returning result of above invocation to caller.
+   unwrap:x:+/*
+   return
+      affected:x:@data.delete

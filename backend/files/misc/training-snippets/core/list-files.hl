@@ -1,0 +1,3 @@
+
+// list all files in /etc/
+io.file.list:/etc/

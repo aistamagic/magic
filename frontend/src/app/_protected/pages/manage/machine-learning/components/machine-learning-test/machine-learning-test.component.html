@@ -1,0 +1,79 @@
+<div mat-dialog-content>
+
+  <!-- CodeMirror editor in case data is Hyperlambda -->
+  <div class="col-12 mb-2" *ngIf="ready">
+
+    <app-codemirror-hyperlambda
+      [(model)]="model">
+    </app-codemirror-hyperlambda>
+
+  </div>
+
+  <div class="col-12" *ngIf="!ready">
+
+    <!-- Everything BUT Hyperlambda -->
+    <mat-form-field class="w-100 custom-alignment">
+      <span
+        matPrefix
+        matTooltip="Completion"
+        class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+        <mat-icon>edit</mat-icon>
+        <span class="text-muted">|</span>
+      </span>
+      <textarea
+        matInput
+        placeholder="Completion"
+        [disabled]="isLoading"
+        [(ngModel)]="completion"
+        rows="20">
+      </textarea>
+    </mat-form-field>
+
+  </div>
+
+  <form (ngSubmit)="submit()" class="d-flex justify-content-md-between align-items-md-center align-items-end flex-md-row w-100">
+
+    <mat-form-field class="w-100 standalone-field me-2">
+      <span
+        matPrefix
+        matTooltip="Prompt"
+        class="d-flex flex-nowrap align-items-center justify-content-between me-2">
+        <mat-icon>help_outline</mat-icon>
+        <span class="text-muted">|</span>
+      </span>
+      <input
+        matInput
+        placeholder="Prompt"
+        name="prompt"
+        cdkFocusInitial
+        [disabled]="isLoading"
+        [(ngModel)]="prompt"
+        autocomplete="off">
+    </mat-form-field>
+
+    <button
+      mat-button
+      [disabled]="isLoading"
+      type="button"
+      mat-dialog-close>
+      Close
+    </button>
+
+    <button
+      mat-button
+      (click)="train()"
+      type="button"
+      [disabled]="isLoading">
+      Train
+    </button>
+
+    <button
+      mat-button
+      type="submit"
+      [disabled]="isLoading">
+      Submit
+    </button>
+
+  </form>
+
+</div>

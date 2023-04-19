@@ -1,0 +1,6 @@
+
+// Create slot 'join-strings' joining all arguments adding space between returning result
+slot.create:join-strings
+   strings.join:x:@.arguments/*
+      .:" "
+   return:x:@strings.join

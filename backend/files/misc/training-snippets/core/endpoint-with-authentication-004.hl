@@ -1,0 +1,6 @@
+
+// Endpoint with partner and leader authentication and authorisation
+.arguments
+auth.ticket.verify:partner,leader
+return
+   result:success

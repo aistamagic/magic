@@ -1,0 +1,215 @@
+
+// Generate an HTTP REST generic SQL endpoint according to the given [.arguments].
+.arguments
+   databaseType:string
+   authorization:string
+   moduleName:string
+   database:string
+   arguments:string
+   verb:string
+   endpointName:string
+   sql:string
+   overwrite:bool
+   generate_training_data:bool
+.description:Creates a custom SQL HTTP endpoint according to the specified arguments
+.type:internal
+
+// Sanity checks invocation.
+validators.mandatory:x:@.arguments/*/databaseType
+validators.mandatory:x:@.arguments/*/moduleName
+validators.mandatory:x:@.arguments/*/database
+validators.mandatory:x:@.arguments/*/verb
+validators.mandatory:x:@.arguments/*/endpointName
+validators.mandatory:x:@.arguments/*/sql
+validators.enum:x:@.arguments/*/databaseType
+   .:mysql
+   .:pgsql
+   .:mssql
+   .:sqlite
+validators.enum:x:@.arguments/*/verb
+   .:post
+   .:get
+   .:put
+   .:delete
+   .:patch
+
+// Ensures user is authorized to access endpoint.
+auth.ticket.verify:root
+
+// Creating a log entry explaining roughly what we're about to do.
+log.info:Generating SQL endpoint
+   module:x:@.arguments/*/moduleName
+   databaseType:x:@.arguments/*/databaseType
+   database:x:@.arguments/*/database
+   verb:x:@.arguments/*/verb
+   endpointName:x:@.arguments/*/endpointName
+
+// Normalising sql argument.
+strings.replace:x:@.arguments/*/sql
+   .:"\r"
+   .:
+set-value:x:@.arguments/*/sql
+   strings.replace:x:@.arguments/*/sql
+      .:"\n"
+      .:"\r\n"
+
+// Loading template file used to generate endpoint.
+io.file.load:/system/crudifier/templates/sql.template.hl
+hyper2lambda:x:@io.file.load
+   comments:bool:true
+
+// Applying database, database-type and sql arguments to template file.
+unwrap:x:+/*
+apply:x:@hyper2lambda
+   database-type:x:@.arguments/*/databaseType
+   database:x:@.arguments/*/database
+   sql:x:@.arguments/*/sql
+
+// Making sure we add arguments to the above lambda.
+if
+   and
+      exists:x:@.arguments/*/arguments
+      not
+         eq
+            get-value:x:@.arguments/*/arguments
+            .:
+      not
+         eq
+            get-value:x:@.arguments/*/arguments
+            .
+   .lambda
+
+      // Argument collection was specified, hence applying arguments to lambda.
+      add:x:@apply/*/.arguments
+         hyper2lambda:x:@.arguments/*/arguments
+
+      // Making sure endpoint applied arguments to [data.select] invocation.
+      insert-before:x:@apply/*/data.connect/*/data.select/-
+         .
+            ..:Parametrizing [data.select].
+            add:x:./*/data.select
+               get-nodes:x:@.arguments/*
+
+      // Looping through all arguments to endpoint and concatenating to our comment.
+      .tmp
+      for-each:x:@apply/*/.arguments/*
+
+         // Appending argument name to comment.
+         if
+            null:x:@.tmp
+            .lambda
+               set-value:x:@.tmp
+                  strings.concat
+                     .:" with argument "
+                     get-name:x:@.dp/#
+         else
+            set-value:x:@.tmp
+               strings.concat
+                  get-value:x:@.tmp
+                  .:", "
+                  get-name:x:@.dp/#
+      set-value:x:@apply/0
+         strings.concat
+            get-value:x:@apply/0
+            get-value:x:@.tmp
+
+/*
+ * Checking if caller provided specific authorization for us to use,
+ * and if so, applying it to lambda.
+ */
+if
+   and
+      not
+         eq
+            get-value:x:@.arguments/*/authorization
+            .:
+      not
+         eq
+            get-value:x:@.arguments/*/authorization
+            .
+   .lambda
+
+      // Adding authorization to endpoint's lambda.
+      unwrap:x:+/*/*
+      insert-after:x:@apply/*/.arguments
+         .
+
+            ..:Making sure user is authorized to invoke endpoint.
+            auth.ticket.verify:x:@.arguments/*/authorization
+
+      // Appending to comment.
+      set-value:x:@apply/0
+         strings.concat
+            get-value:x:@apply/0
+            .:" with authentication and authorisation for "
+            get-value:x:@.arguments/*/authorization
+            .:" roles"
+
+// Appending description to endpoint
+unwrap:x:+/*/*
+insert-after:x:@apply/1
+   .
+      .description:x:@apply/0
+
+// Creating our folder if necessary.
+.folder:/modules/
+set-value:x:@.folder
+   strings.concat
+      get-value:x:@.folder
+      get-value:x:@.arguments/*/moduleName
+      .:/
+io.folder.create:x:@.folder
+
+// Transforming above lambda to Hyperlambda, and figuring out filename.
+lambda2hyper:x:@apply/*
+   comments:bool:true
+.filename
+set-value:x:@.filename
+   strings.concat
+      get-value:x:@.folder
+      get-value:x:@.arguments/*/endpointName
+      .:.
+      get-value:x:@.arguments/*/verb
+      .:.hl
+
+// Making sure file does not exist from before, unless [.argument][overwrite] is true.
+if
+   and
+      not
+         get-value:x:@.arguments/*/overwrite
+      io.file.exists:x:@.filename
+   .lambda
+
+      // Endpoint already exists and caller didn't specify he or she wanted to overwrite existing endpoint.
+      throw:Endpoint already exists, choose a new name or enable overwrite
+         status:400
+         public:true
+
+// Saving file.
+io.file.save:x:@.filename
+   get-value:x:@lambda2hyper
+
+// Checking if caller specified he or she wanted to generate training data for OpenAI on endpoint's Hyperlambda.
+if
+   and
+      exists:x:@.arguments/*/generate_training_data
+      get-value:x:@.arguments/*/generate_training_data
+   .lambda
+
+      // Generating training data for OpenAI on Hyperlambda.
+      remove-nodes:x:@apply/**/database-type
+      lambda2hyper:x:@apply/*
+         comments:true
+      strings.concat
+         .:/misc/training-snippets/sql-endpoints/
+         .:custom-sql-
+         crypto.random
+            min:5
+            max:5
+         .:.hl
+      io.file.save:x:@strings.concat
+         get-value:x:@lambda2hyper
+
+// Returns success to caller.
+return-nodes
+   result:success

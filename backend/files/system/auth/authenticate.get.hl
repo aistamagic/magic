@@ -1,0 +1,26 @@
+
+// Authenticates a user returning a JWT token if successful
+.arguments
+   username:string
+   password:string
+   recaptcha_response:string
+.description:Authenticates a user returning a JWT token if successful
+.type:public
+
+// TODO: Verify reCAPTCHA token is valid but ONLY if server has reCAPTCHA configurations.
+
+// Sanity checking invocation.
+validators.mandatory:x:@.arguments/*/username
+validators.mandatory:x:@.arguments/*/password
+
+/*
+ * Invokes [magic.auth.authenticate] that does the heavy lifting, and creates our JWT token,
+ * making sure we return that token to caller.
+ */
+unwrap:x:+/*
+signal:magic.auth.authenticate
+   username:x:@.arguments/*/username
+   password:x:@.arguments/*/password
+
+// Returns the authentication JWT ticket created above to caller.
+return-nodes:x:@signal/*

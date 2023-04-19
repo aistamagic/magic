@@ -1,0 +1,235 @@
+
+// Asks OpenAI a question with the specified type, and returns the answer to caller.
+.arguments
+   prompt:string
+   type:string
+   references:bool
+   recaptcha_response:string
+.description:Asks OpenAI a question with the specified type, and returns the answer to caller
+.type:public
+
+// Sanity checking invocation.
+validators.mandatory:x:@.arguments/*/prompt
+validators.string:x:@.arguments/*/prompt
+   min:1
+
+// Trimming prompt.
+set-value:x:@.arguments/*/prompt
+   strings.trim:x:@.arguments/*/prompt
+
+// Connecting to database to retrieve model settings.
+data.connect:[generic|magic]
+
+   // Reading settings for type declaration.
+   data.read
+      table:ml_types
+      columns
+         model
+         max_tokens
+         temperature
+         recaptcha
+         auth
+         supervised
+         cached
+         prefix
+         use_embeddings
+         threshold
+         vector_model
+      where
+         and
+            type.eq:x:@.arguments/*/type
+
+   // Verifying type exists.
+   if
+      not-exists:x:@data.read/*/*
+      .lambda
+
+         // Oops, no such type, making sure we try default type.
+         data.read
+            table:ml_types
+            columns
+               model
+               max_tokens
+               temperature
+               recaptcha
+               auth
+               supervised
+               cached
+               prefix
+               use_embeddings
+               threshold
+               vector_model
+            where
+               and
+                  type.eq:default
+         if
+            not-exists:x:@data.read/*
+            .lambda
+
+               // Default type doesn't exist, nothing to do here.
+               throw:No such type, and no default type was found
+                  status:int:400
+                  public:bool:true
+
+         // Resorting to default type.
+         add:x:@.lambda/@data.read
+            get-nodes:x:@data.read/*
+         set-value:x:@.arguments/*/type
+            .:default
+
+   // Checking if model requires authentication and authorisation.
+   if
+      not-null:x:@data.read/*/*/auth
+      .lambda
+      
+         // Making sure user is authorised to using type.
+         auth.ticket.verify:x:@data.read/*/*/auth
+
+   // Checking if model requires reCAPTCHA.
+   if
+      and
+         not
+            auth.ticket.in-role:root
+         mt
+            convert:x:@data.read/*/*/recaptcha
+               type:decimal
+            .:decimal:0
+      .lambda
+
+         // Making sure reCAPTCHA value was provided.
+         validators.mandatory:x:@.arguments/*/recaptcha_response
+
+         // Retrieving reCAPTCHA site key.
+         .key
+         set-value:x:@.key
+            config.get:"magic:auth:recaptcha:key"
+
+         // Retrieving reCAPTCHA secret.
+         .secret
+         set-value:x:@.secret
+            config.get:"magic:auth:recaptcha:secret"
+
+         // Validating reCAPTCHA invocation confirms request originated from a human.
+         convert:x:@data.read/*/*/recaptcha
+            type:decimal
+         validators.recaptcha:x:@.arguments/*/recaptcha_response
+            min:x:@convert
+            site-key:x:@.key
+            secret:x:@.secret
+
+   // Checking if request has been previously cached.
+   data.read
+      table:ml_requests
+      columns
+         completion
+         cached
+      where
+         and
+            prompt.eq:x:@.arguments/*/prompt
+            type.eq:x:@.arguments/*/type
+      limit:1
+      order:created
+      direction:desc
+
+   // Checking if we could find a matching request in cache.
+   if
+      and
+         exists:x:@data.read/*/*
+         eq
+            convert:x:@data.read/*/*/cached
+               type:int
+            .:int:1
+      .lambda
+
+         // Checking if type is cached.
+         if
+            and
+               exists:x:@data.read/@data.read/*/*
+               eq
+                  convert:x:@data.read/@data.read/*/*/cached
+                     type:int
+                  .:int:1
+            .lambda
+
+               // Returning cached completion.
+               unwrap:x:+/*
+               return
+                  result:x:@data.read/*/*/completion
+
+   // Invoking Hyperlambda file doing the heavy lifting.
+   .result
+   if
+      eq
+         convert:x:@data.read/@data.read/*/*/use_embeddings
+            type:int
+         .:int:1
+      .lambda
+
+         // Using embeddings API.
+         add:x:./*/io.file.execute
+            get-nodes:x:@.arguments/*/type
+            get-nodes:x:@data.read/@data.read/*/*/prefix
+            get-nodes:x:@.arguments/*/prompt
+            get-nodes:x:@.arguments/*/references
+            get-nodes:x:@data.read/@data.read/*/*/model
+            get-nodes:x:@data.read/@data.read/*/*/max_tokens
+            get-nodes:x:@data.read/@data.read/*/*/temperature
+            get-nodes:x:@data.read/@data.read/*/*/threshold
+            get-nodes:x:@data.read/@data.read/*/*/vector_model
+            .
+               fine_tuned:bool:false
+         io.file.execute:/system/openai/prompt.implementation/embeddings-prompt.hl
+         add:x:@.result
+            get-nodes:x:@io.file.execute/*
+
+   else
+
+      // Not using embeddings.
+      add:x:./*/io.file.execute
+         get-nodes:x:@.arguments/*/type
+         get-nodes:x:@data.read/@data.read/*/*/prefix
+         get-nodes:x:@.arguments/*/prompt
+         get-nodes:x:@data.read/@data.read/*/*/model
+         get-nodes:x:@data.read/@data.read/*/*/max_tokens
+         get-nodes:x:@data.read/@data.read/*/*/temperature
+         .
+            fine_tuned:bool:true
+      io.file.execute:/system/openai/prompt.implementation/completion-prompt.hl
+      add:x:@.result
+         get-nodes:x:@io.file.execute/*
+
+   // Checking if type is 'supervised', at which point we store prompt and completion unless it already exists in cache.
+   if
+      and
+         not
+            get-value:x:@.result/*/error
+         not
+            exists:x:@data.read/*/*
+         mt
+            convert:x:@data.read/@data.read/*/*/supervised
+               type:int
+            .:int:0
+      .lambda
+
+         // Storing prompt and completion in ml_requests table.
+         data.create
+            table:ml_requests
+            values
+               type:x:@.arguments/*/type
+               prompt:x:@.arguments/*/prompt
+               completion:x:@.result/*/result
+               finish_reason:x:@.result/*/finish_reason
+
+   /*
+    * Applying some HTTP caching to avoid invoking OpenAI again with
+    * the same question before some minimum amount of time has passed.
+    */
+   response.headers.set
+      Cache-Control:max-age=30
+
+   // Returning results returned from invocation above to caller.
+   add:x:+
+      get-nodes:x:@.result/*/result
+      get-nodes:x:@.result/*/finish_reason
+      get-nodes:x:@.result/*/references
+   return

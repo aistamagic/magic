@@ -1,0 +1,252 @@
+
+/*
+ * This file will setup your system, changing its default JWT secret,
+ * create the magic database, and insert a root user - Unless the
+ * database, and/or root user exists from before.
+ * 
+ * Notice, if the root user exists from before, this file will change
+ * its password - However, you cannot setup the system twice, unless you
+ * manually change the JWT secret to a value that's less than 50 characters
+ * in length.
+ */
+.arguments
+   username:string
+   password:string
+   is_hashed:bool
+   connectionString:string
+   defaultTimeZone:string
+   databaseType:string
+   name:string
+   email:string
+.description:Setup authentication and other parts of the system according to the arguments provided
+.type:internal
+
+// Ensures user is authorized to access endpoint.
+auth.ticket.verify:root
+
+// Sanity checking invocation.
+validators.enum:x:@.arguments/*/databaseType
+   .:mssql
+   .:mysql
+   .:pgsql
+   .:sqlite
+
+// Defaulting [is_hashed] to false.
+if
+   not
+      exists:x:@.arguments/*/is_hashed
+   .lambda
+      add:x:@.arguments
+         .
+            is_hashed:bool:false
+
+// Defaulting to 'root' as root username unless user specified an explicit username.
+if
+   not
+      exists:x:@.arguments/*/username
+   .lambda
+      add:x:@.arguments
+         .
+            username:root
+
+/*
+ * Checking if JWT secret has been changed, and
+ * if is has, we throw an exception, to prevent the
+ * system from being setup again, overriding the default
+ * setup configuration.
+ */
+config.get:"magic:auth:secret"
+if
+   and
+      not-null:x:@config.get
+      mte
+         strings.length:x:@config.get
+         .:int:50
+   .lambda
+
+      // System has been setup before
+      throw:Your system has already been setup
+         status:401
+         public:true
+
+// Making sure we're able to return exceptions to caller.
+try
+
+   /*
+    * Testing connection string before we save it, to make sure
+    * it is functioning. This part will throw if connection string is
+    * not valid.
+    */
+   try
+
+      switch:x:@.arguments/*/databaseType
+
+         case:mssql
+            strings.replace:x:@.arguments/*/connectionString
+               .:{database}
+               .:master
+            mssql.connect:x:@strings.replace
+               mssql.select:select name from master.dbo.sysdatabases
+
+         case:mysql
+            strings.replace:x:@.arguments/*/connectionString
+               .:{database}
+               .:information_schema
+            mysql.connect:x:@strings.replace
+               mysql.select:show databases
+
+         case:pgsql
+            strings.replace:x:@.arguments/*/connectionString
+               .:{database}
+               .:postgres
+            pgsql.connect:x:@strings.replace
+               pgsql.select:select datname from pg_database
+
+         case:sqlite
+            // No need to verify if connection string is good.
+            .
+
+   .catch
+
+      throw:Could not connect to database, please double check your connection string
+         public:true
+         status:400
+
+   /*
+    * Connection string is valid and we are able to connect to a database,
+    * hence we can safely change our appsettings.json file now.
+    */
+   config.load
+   json2lambda:x:@config.load
+
+   // Storing old default database, since if it's being changed, we must ensure database is created.
+   .old-db
+   set-value:x:@.old-db
+      get-value:x:@json2lambda/*/magic/*/databases/*/default
+
+   // Creating our default database configuration object.
+   remove-nodes:x:@json2lambda/*/magic/*/databases/*
+   unwrap:x:+/*/*
+   add:x:@json2lambda/*/magic/*/databases
+      .
+         default:x:@.arguments/*/databaseType
+   set-name:x:+/+/*/*
+      get-value:x:@.arguments/*/databaseType
+   unwrap:x:+/*/*/*
+   add:x:@json2lambda/*/magic/*/databases
+      .
+         .
+            generic:x:@.arguments/*/connectionString
+   set-value:x:@json2lambda/*/magic/*/auth/*/secret
+      crypto.random
+         min:100
+         max:200
+   set-value:x:@json2lambda/*/magic/*/culture/*/defaultTimeZone
+      get-value:x:@.arguments/*/defaultTimeZone
+
+   // Saving changed configuration now.
+   lambda2json:x:@json2lambda/*
+   config.save:x:-
+
+   /*
+    * Sleeping for 2 seconds to allow configuration to kick
+    * in on thread pools threads.
+    *
+    * Notice, even though this is bananas, it is necessary since we're using the appsettings
+    * connection string to connect to database further down in this file and the configuration
+    * object is stale unless we sleep the thread for a couple of seconds.
+    */
+   sleep:2000
+
+   // Creating our magic database since default database might have changed.
+   if
+      neq:x:@.old-db
+         get-value:x:@.arguments/*/databaseType
+      .lambda
+
+         // Database type was changed, hence we must ensure we create database if not already existing.
+         io.file.execute:/system/ensure-magic-database.hl
+
+   /*
+    * We can start the setup process, inserting a root user, etc ...
+    *
+    * We only insert a new root user if no root user exists in users table though.
+    * If root user already exists, we change its password instead.
+    *
+    * This allows users to "reset" their Magic backend by changing the JWT
+    * secret to anything less than 50 characters in length, and such re-configure
+    * their backend with a new username/password.
+    */
+   data.connect:[generic|magic]
+      data.read
+         table:users
+         where
+            and
+               username.eq:x:@.arguments/*/username
+
+      // Checking if root user already exists.
+      if
+         exists:x:@data.read/*/*
+         .lambda
+
+            // Root user already exists, hence simply changing its password.
+            unwrap:x:+/*
+            signal:magic.auth.change-password
+               password:x:@.arguments/*/password
+               database-type:x:@.arguments/*/databaseType
+               is_hashed:x:@.arguments/*/is_hashed
+
+      else
+
+         // Inserting root user.
+         unwrap:x:+/*
+         signal:magic.auth.create-user
+            username:x:@.arguments/*/username
+            password:x:@.arguments/*/password
+            is_hashed:x:@.arguments/*/is_hashed
+            database-type:x:@.arguments/*/databaseType
+            roles
+               .:root
+            extra
+               source:setup
+
+      /*
+       * Explicitly seeding CSRNG with password to create more entropy.
+       */
+      crypto.seed:x:@.arguments/*/password
+
+      // Creating cryptography key pair.
+      crypto.random
+         min:100
+         max:200
+      strings.concat
+         request.scheme
+         .:"://"
+         request.host
+      unwrap:x:+/*
+      io.file.execute:/system/crypto/generate-keypair.post.hl
+         strength:int:2048
+         seed:x:@crypto.random
+         subject:x:@.arguments/*/name
+         email:x:@.arguments/*/email
+         username:x:@.arguments/*/username
+         domain:x:@strings.concat
+
+      // Authenticating user and returning new JWT token to client.
+      unwrap:x:+/*
+      signal:magic.auth.authenticate
+         username:x:@.arguments/*/username
+         check-password:bool:false
+
+      // Re-initialising time zone in case it was changed from its default setting.
+      timezone.init
+
+      // Returns the authentication JWT ticket created above to caller.
+      return-nodes:x:@signal/*
+
+   .catch
+
+      // Making sure we make exception publicly visible for frontend.
+      throw:x:@.arguments/*/message
+         public:true
+         status:400

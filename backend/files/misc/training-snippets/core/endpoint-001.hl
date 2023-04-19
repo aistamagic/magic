@@ -1,0 +1,7 @@
+
+// Empty endpoint returning OK
+.arguments
+
+// Returning OK as result.
+return
+   result:OK

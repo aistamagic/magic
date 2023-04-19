@@ -1,0 +1,52 @@
+
+<div class="w-100 d-flex flex-nowrap align-items-center justify-content-between">
+  <form (ngSubmit)="askOpenAi()" class="w-100 d-flex flex-nowrap align-items-center justify-content-between">
+
+    <mat-form-field class="w-100 standalone-field prompt" *ngIf="openAiEnabled">
+      <span
+        matPrefix
+        [matTooltip]="getTooltip()"
+        class="d-flex flex-nowrap align-items-center justify-content-between pe-2">
+        <mat-icon>help_outline</mat-icon>
+        <span class="text-muted">|</span>
+      </span>
+      <input
+        matInput
+        placeholder="Where the Machine Creates the Code ..."
+        [disabled]="waitingForAnswer"
+        name="openAiPrompt"
+        [(ngModel)]="openAiPrompt"
+        autocomplete="off">
+      <button
+        mat-icon-button
+        matSuffix
+        tabIndex="-1"
+        type="reset"
+        (click)="openAiPrompt = ''"
+        *ngIf="openAiPrompt !== ''">
+        <mat-icon>close</mat-icon>
+      </button>
+    </mat-form-field>
+
+    <button
+      mat-button
+      type="submit"
+      *ngIf="openAiEnabled"
+      [disabled]="waitingForAnswer"
+      color="primary"
+      class="px-3">
+      Ask
+    </button>
+
+  </form>
+
+  <button
+    *ngIf="!openAiEnabled"
+    mat-button
+    color="primary"
+    class="px-3"
+    (click)="configureOpenAi()">
+    Configure AI
+  </button>
+
+</div>

@@ -1,0 +1,25 @@
+
+// Returns the status of the setup process back to caller.
+.description:Returns the setup status of the system
+.type:internal
+
+// Ensures user is authorized to access endpoint.
+auth.ticket.verify:root
+
+// Checking if JWT secret has been changed.
+config.get:"magic:auth:secret"
+if
+   or
+      null:x:@config.get
+      lt
+         strings.length:x:@config.get
+         .:int:50
+   .lambda
+
+      // System has not been setup.
+      return
+         result:bool:false
+
+// Returns results of above invocations to caller.
+return
+   result:bool:true

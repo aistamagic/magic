@@ -1,0 +1,12 @@
+
+// Returns the version of the backend to the caller.
+.description:Returns the backend version
+.type:internal
+
+// Ensures user is authorized to access endpoint.
+auth.ticket.verify:root
+
+// Retrieves backend version, and returns to client.
+eval:x:+
+return-nodes
+   version

@@ -1,0 +1,19 @@
+<h3 mat-dialog-title>Load SQL snippet</h3>
+
+<div mat-dialog-content>
+
+  <app-searchbox (filterList)="filterList($event)">
+  </app-searchbox>
+
+  <mat-selection-list
+    [multiple]="false"
+    dense>
+    <mat-list-option
+      *ngFor="let item of files"
+      [class.d-none]="filter && item.toLowerCase().indexOf(filter.toLowerCase()) === -1"
+      (click)="select(item)">
+      {{getFilename(item)}}
+    </mat-list-option>
+  </mat-selection-list>
+
+</div>

@@ -1,0 +1,63 @@
+<mat-card>
+  <mat-card-content>
+
+    <mat-tab-group
+      mat-stretch-tabs
+      dynamicHeight
+      animationDuration="0ms"
+      #tabs>
+
+      <!-- Training data types -->
+      <mat-tab>
+
+        <ng-template mat-tab-label>
+          Models
+        </ng-template>
+
+        <ng-template matTabContent>
+
+          <app-machine-learning-models
+            [(isConfigured)]="isConfigured"
+            (trainModel)="trainModel($event)">
+          </app-machine-learning-models>
+
+        </ng-template>
+
+      </mat-tab>
+
+      <!-- Training snippets -->
+      <mat-tab [disabled]="!isConfigured">
+
+        <ng-template mat-tab-label>
+          Training data
+        </ng-template>
+
+        <ng-template matTabContent>
+
+          <app-machine-learning-training-data>
+          </app-machine-learning-training-data>
+
+        </ng-template>
+
+      </mat-tab>
+
+      <!-- Cache -->
+      <mat-tab [disabled]="!isConfigured">
+
+        <ng-template mat-tab-label>
+          Cache
+        </ng-template>
+
+        <ng-template matTabContent>
+
+          <app-machine-learning-cache>
+          </app-machine-learning-cache>
+
+        </ng-template>
+
+      </mat-tab>
+
+    </mat-tab-group>
+
+  </mat-card-content>
+</mat-card>

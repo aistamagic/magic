@@ -1,0 +1,38 @@
+
+/*
+ * Startup Hyperlambda file, executed as system is initially started.
+ *
+ * Creates the magic database, and applies some sane default configuration
+ * settings.
+ */
+
+// Before we can check if magic db exists, we'll need the slots that does the heavy lifting for us.
+io.file.execute:/system/sql/magic.startup/mssql/magic.db.mssql.databases.hl
+io.file.execute:/system/sql/magic.startup/mysql/magic.db.mysql.databases.hl
+io.file.execute:/system/sql/magic.startup/pgsql/magic.db.pgsql.databases.hl
+io.file.execute:/system/sql/magic.startup/sqlite/magic.db.sqlite.databases.hl
+
+// Creating our magic database.
+io.file.execute:/system/ensure-magic-database.hl
+
+// Executing all magic.startup Hyperlambda files.
+io.file.list-recursively:/system/
+io.file.list-recursively:/modules/
+for-each:x:./*/io.file.list-recursively/*
+
+   // Checking if file is a startup Hyperlambda file.
+   if
+      and
+         strings.contains:x:@.dp/#
+            .:/magic.startup/
+         strings.ends-with:x:@.dp/#
+            .:.hl
+      .lambda
+
+         // Executing file.
+         strings.concat
+            .:"Executing startup file '"
+            get-value:x:@.dp/#
+            .:"."
+         console.log:x:-
+         io.file.execute:x:@.dp/#

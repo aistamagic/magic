@@ -1,0 +1,5 @@
+
+// Insert [foo] after email argument
+insert-after:x:@.arguments/*/email
+   .
+      foo

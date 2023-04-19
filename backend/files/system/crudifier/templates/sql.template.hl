@@ -1,0 +1,14 @@
+
+// Endpoint executing SQL and returns result of invocation to caller
+.arguments
+
+// Connecting to database.
+data.connect:{database}
+   database-type:{database-type}
+
+   // Executing [data.select] slot with our SQL.
+   data.select:{sql}
+      database-type:{database-type}
+
+   // Returning a result of above invocation to caller.
+   return-nodes:x:@data.select/*

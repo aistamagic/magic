@@ -1,0 +1,5 @@
+
+// Throw public exception
+throw:error
+   status:456
+   public:true

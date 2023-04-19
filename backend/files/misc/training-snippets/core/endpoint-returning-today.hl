@@ -1,0 +1,7 @@
+
+// Endpoint returning current date and time
+.arguments
+date.now
+unwrap:x:+/*
+return
+   today:x:@date.now

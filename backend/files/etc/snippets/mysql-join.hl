@@ -1,0 +1,29 @@
+/*
+ * Illustrates how to create a complex read invocation,
+ * that joins two different tables together, using lambda
+ * and semantic SQL.
+ * 
+ * Notice, requires you to have the Sakila database installed
+ * from Oracle.
+ */
+mysql.connect:sakila
+   mysql.read
+      columns
+         film.title
+         film.description
+         actor.last_name
+         actor.first_name
+      table:film
+         join:film_actor
+            type:inner
+            on
+               and
+                  film.film_id:film_actor.film_id
+            join:actor
+               type:inner
+               on
+                  and
+                     film_actor.actor_id:actor.actor_id
+      where
+         and
+            actor.first_name:NICK

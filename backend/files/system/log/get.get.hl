@@ -1,0 +1,18 @@
+
+// Returns the specified log item to caller.
+.arguments
+   id:string
+.description:Returns the specified log item
+.type:internal
+
+// Ensures user is authorized to access endpoint.
+auth.ticket.verify:root
+
+// Sanity checking invocation.
+validators.mandatory:x:@.arguments/*/id
+
+// Invoking slot responsible for returning item.
+log.get:x:@.arguments/*/id
+
+// Returning result of above invocation to caller.
+return-nodes:x:-/*

@@ -1,0 +1,6 @@
+
+// Create slot my_slotqwqw returning 42
+
+// Creating our slot
+slots.create:my_slotqwqw
+   return-value:int:42

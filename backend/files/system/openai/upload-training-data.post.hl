@@ -1,0 +1,145 @@
+
+/*
+ * Stores the specified file as training data for the specified model.
+ */
+.arguments
+   file:*
+   type:string
+   prompt:string
+   completion:string
+.type:internal
+.accept:multipart/form-data
+.description:Stores the specified file as training data for the specified model
+
+// Ensures user is authorized to access endpoint.
+auth.ticket.verify:root
+
+// Sanity checking invocation.
+validators.mandatory:x:@.arguments/*/file
+validators.mandatory:x:@.arguments/*/file/*/name
+validators.mandatory:x:@.arguments/*/file/*/stream
+
+// Defaulting prompt and completion arguments to prompt and completion.
+if
+   not-exists:x:@.arguments/*/prompt
+   .lambda
+      add:x:@.arguments
+         .
+            prompt:prompt
+if
+   not-exists:x:@.arguments/*/completion
+   .lambda
+      add:x:@.arguments
+         .
+            completion:completion
+
+// Reading file data from stream.
+io.stream.read:x:@.arguments/*/file/*/stream
+
+// Buffer for file data.
+.file-data
+
+// Figuring out type of file.
+strings.split:x:@.arguments/*/file/*/name
+   .:.
+strings.to-lower:x:@strings.split/0/-
+
+// Converting file to lambda object according to its extention.
+switch:x:@strings.to-lower
+
+   // CSV file type.
+   case:csv
+      add:x:@.file-data
+         csv2lambda:x:@io.stream.read
+
+   // XML file type.
+   case:xml
+      xml2lambda:x:@io.stream.read
+      for-each:x:@xml2lambda/*/*
+         unwrap:x:./*/add/*/*/*
+         set-name:x:./*/add/*/*/*/prompt
+            get-value:x:@.arguments/*/prompt
+         set-name:x:./*/add/*/*/*/completion
+            get-value:x:@.arguments/*/completion
+         add:x:@.file-data
+            .
+               .
+                  prompt:x:@.dp/#/*/{@.arguments/*/prompt}/*/\#text
+                  completion:x:@.dp/#/*/{@.arguments/*/completion}/*/\#text
+
+   // JSON file type.
+   case:json
+      add:x:@.file-data
+         json2lambda:x:@io.stream.read
+
+   // YAML file type.
+   case:yaml
+      add:x:@.file-data
+         yaml2lambda:x:@io.stream.read
+
+// Sanity checking file.
+if
+   or
+      not-exists:x:@.file-data/0/*/{@.arguments/*/prompt}
+      not-exists:x:@.file-data/0/*/{@.arguments/*/completion}
+   .lambda
+
+      // Returning error to caller.
+      response.status.set:400
+      return
+         message:"Your CSV file needs to have at the very least prompt and completion fields, or you need to correctly apply the right fields to use as substitutes"
+
+// Connecting to database.
+data.connect:[generic|magic]
+
+   // Looping through each CSV record inserting into database.
+   for-each:x:@.file-data/*
+
+      // Creating a unique URI based upon the prompt unless the file contains a URI.
+      .uri
+      if
+         exists:x:@.dp/#/*/uri
+         .lambda
+            set-value:x:@.uri
+               get-value:x:@.dp/#/*/uri
+      else
+         set-value:x:@.uri
+            crypto.hash.sha256:x:@.dp/#/*/{@.arguments/*/prompt}
+
+      // Using type from arguments unless file contains a type declaration.
+      .type
+      if
+         exists:x:@.dp/#/*/type
+         .lambda
+            set-value:x:@.type
+               get-value:x:@.dp/#/*/type
+      else-if
+         or
+            not-exists:x:@.arguments/*/type
+            eq:x:@.arguments/*/type
+               .
+            eq:x:@.arguments/*/type
+               .:
+         .lambda
+            set-value:x:@.type
+               .:default
+      else
+         set-value:x:@.type
+            get-value:x:@.arguments/*/type
+
+      // Inserting into database.
+      data.create
+         table:ml_training_snippets
+         values
+            type:x:@.type
+            uri:x:@.uri
+            prompt:x:@.dp/#/*/{@.arguments/*/prompt}
+            completion:x:@.dp/#/*/{@.arguments/*/completion}
+
+// Returning success to caller.
+get-count:x:@.file-data/*
+log.info:x:-
+unwrap:x:+/*
+return
+   result:success
+   count:x:@get-count

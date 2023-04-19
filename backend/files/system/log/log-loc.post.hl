@@ -1,0 +1,29 @@
+
+// Logs line of codes generated.
+.arguments
+   loc:int
+   type:string
+   name:string
+.description:Logs lines of code (LOC) generated
+.type:internal
+
+// Sanity checking invocation.
+validators.mandatory:x:@.arguments/*/loc
+validators.mandatory:x:@.arguments/*/type
+validators.mandatory:x:@.arguments/*/name
+validators.enum:x:@.arguments/*/type
+   .:backend
+   .:frontend
+
+// Ensures user is authorized to access endpoint.
+auth.ticket.verify:root
+
+// Creating a log entry with LOC that was generated.
+log.info:LOC generated
+   loc:x:@.arguments/*/loc
+   type:x:@.arguments/*/type
+   name:x:@.arguments/*/name
+
+// Returning success to caller.
+return
+   result:success

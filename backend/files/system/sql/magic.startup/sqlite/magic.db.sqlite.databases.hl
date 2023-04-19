@@ -1,0 +1,27 @@
+
+/*
+ * Lists all SQLite database in your default data folder.
+ * 
+ * Arguments
+ * 
+ * - [connection-string] - What connection string to use
+ */
+slots.create:magic.db.sqlite.databases
+
+   // Listing files in data folder and returning to caller.
+   io.file.list:/data/
+   for-each:x:-/*
+      if
+         strings.ends-with:x:@.dp/#
+            .:.db
+         .lambda
+            strings.split:x:@.dp/#
+               .:/
+            strings.split:x:-/0/-
+               .:.
+            unwrap:x:+/*/*/*
+            add:x:../*/return-nodes
+               .
+                  .
+                     db:x:@strings.split/0
+   return-nodes

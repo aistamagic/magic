@@ -1,0 +1,174 @@
+
+// Lists all database in your installation.
+.arguments
+   databaseType:string
+   connectionString:string
+.description:Returns all databases in your installation, according to the arguments specified
+.type:internal
+
+// Ensures user is authorized to access endpoint.
+auth.ticket.verify:root
+
+// Sanity checking invocation.
+validators.mandatory:x:@.arguments/*/databaseType
+validators.mandatory:x:@.arguments/*/connectionString
+validators.enum:x:@.arguments/*/databaseType
+   .:mysql
+   .:pgsql
+   .:mssql
+   .:sqlite
+
+/*
+ * Since this endpoint is quite expensive to invoke, we cache its result
+ * for 10 hours on the server side.
+ */
+strings.concat
+   .:magic.sql.databases.
+   get-value:x:@.arguments/*/databaseType
+   :.
+   get-value:x:@.arguments/*/connectionString
+unwrap:x:../*/cache.try-get/**/.databaseType
+unwrap:x:../*/cache.try-get/**/.connection-string
+cache.try-get:x:@strings.concat
+   expiration:36000
+   .lambda
+
+      // Retrieving databases.
+      .databaseType:x:@.arguments/*/databaseType
+      .connection-string:x:@.arguments/*/connectionString
+      strings.concat
+         .:magic.db.
+         get-value:x:@.databaseType
+         .:.databases
+      unwrap:x:+/*
+      signal:x:@strings.concat
+         connection-string:x:@.connection-string
+
+      switch:x:@.databaseType
+
+         case:mssql
+            remove-nodes:x:@signal/*/*/db/=master
+            remove-nodes:x:@signal/*/*/db/=tempdb
+            remove-nodes:x:@signal/*/*/db/=model
+            remove-nodes:x:@signal/*/*/db/=msdb
+
+         case:mysql
+            remove-nodes:x:@signal/*/*/db/=information_schema
+            remove-nodes:x:@signal/*/*/db/=mysql
+            remove-nodes:x:@signal/*/*/db/=performance_schema
+            remove-nodes:x:@signal/*/*/db/=sys
+
+         case:pgsql
+            remove-nodes:x:@signal/*/*/db/=postgres
+            remove-nodes:x:@signal/*/*/db/=template1
+            remove-nodes:x:@signal/*/*/db/=template0
+
+      // Creating our return value, one for each database.
+      .result
+      for-each:x:@signal/*/*
+         set-name:x:@.dp/#
+            .:database
+         unwrap:x:+/*/*/*
+         add:x:@.result
+            .
+               .
+                  name:x:@.dp/#
+                  tables
+
+      // Iterating through databases.
+      for-each:x:@.result/*
+         try
+
+            // Retrieving tables.
+            strings.concat
+               .:magic.db.
+               get-value:x:@.databaseType
+               .:.tables
+            unwrap:x:+/*
+            signal:x:@strings.concat
+               connection-string:x:@.connection-string
+               database:x:@.dp/#/*/name
+            for-each:x:@signal/*
+
+               // Retrieving columns.
+               unwrap:x:+/*/*/*
+               add:x:@for-each/@.dp/#/*/tables
+                  .
+                     .
+                        name:x:@.dp/#/*/table
+                        columns
+               strings.concat
+                  .:magic.db.
+                  get-value:x:@.databaseType
+                  .:.columns
+               unwrap:x:+/*
+               signal:x:@strings.concat
+                  connection-string:x:@.connection-string
+                  database:x:@for-each/@.dp/#/*/name
+                  table:x:@.dp/#/*/table
+               for-each:x:@signal/*
+                  unwrap:x:+/*/*/*
+                  add:x:@for-each/@for-each/@.dp/#/*/tables/0/-/*/columns
+                     .
+                        .
+                           name:x:@.dp/#/*/name
+                           db:x:@.dp/#/*/db
+                           nullable:x:@.dp/#/*/nullable
+                           primary:x:@.dp/#/*/primary
+                           automatic:x:@.dp/#/*/automatic
+                           hl:x:@.dp/#/*/hl
+
+               // Retrieving foreign keys.
+               add:x:@for-each/@for-each/@.dp/#/*/tables/0/-
+                  .
+                     foreign_keys
+               strings.concat
+                  .:magic.db.
+                  get-value:x:@.databaseType
+                  .:.foreign_keys
+               unwrap:x:+/*
+               signal:x:@strings.concat
+                  connection-string:x:@.connection-string
+                  database:x:@for-each/@for-each/@.dp/#/*/name
+                  table:x:@.dp/#/*/table
+               for-each:x:@signal/*
+                  add:x:+/*/*
+                     get-nodes:x:@.dp/#/*
+                  add:x:@for-each/@for-each/@for-each/@.dp/#/*/tables/0/-/*/foreign_keys
+                     .
+                        .
+
+               // Retrieving indexes.
+               add:x:@for-each/@for-each/@for-each/@.dp/#/*/tables/0/-
+                  .
+                     indexes
+               strings.concat
+                  .:magic.db.
+                  get-value:x:@.databaseType
+                  .:.indexes
+               unwrap:x:+/*
+               signal:x:@strings.concat
+                  connection-string:x:@.connection-string
+                  database:x:@for-each/@for-each/@for-each/@.dp/#/*/name
+                  table:x:@.dp/#/*/table
+               for-each:x:@signal/*
+                  add:x:+/*/*
+                     get-nodes:x:@.dp/#/*
+                  add:x:@for-each/@for-each/@for-each/@for-each/@.dp/#/*/tables/0/-/*/indexes
+                     .
+                        .
+         .catch
+
+            // Silently ignoring, after logging, probably don't have access to database.
+            log.info:x:@.arguments/*/message
+
+      // Returning database to caller.
+      lambda2hyper:x:@.result/*
+      return:x:@lambda2hyper
+
+// Returning results to caller.
+hyper2lambda:x:@cache.try-get
+add:x:../*/return-nodes/*/databases
+   get-nodes:x:@hyper2lambda/*
+return-nodes
+   databases
